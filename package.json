@@ -1,8 +1,8 @@
 {
   "name": "assistance-api",
   "version": "0.0.1",
-  "description": "API do sistema de assistência técnica da LOG",
-  "author": "LOG-NATURE-TI",
+  "description": "API do sistema de assistência técnica",
+  "author": "",
   "license": "ISC",
   "scripts": {
     "start": "node dist/src/server.js",
