@@ -1,0 +1,20 @@
+{{> head}}
+{{> header}}
+  <h2>Olá!</h2>
+
+  <p>
+    Os colares abaixo estão expirando sua garantia nos próximos 30 dias, segue os dados:
+  </p>
+
+  {{#each collars}}
+    <p>
+      Data Garantia: <b>{{this.cameraDate}}</b><br>
+      Número: <b>{{this.number}}</b><br>
+      Cliente: <b>{{this.client.name}}</b><br>
+      Telefone: <b>{{this.clientPhoneNumber}}</b><br>
+      Pedido: <b>{{this.order.invoice}}</b><br>
+      Sistema: <b>{{this.order.system}}</b><br>
+      Empresa: <b>{{this.order.company}}</b><br>
+    </p>
+  {{/each}}
+{{> footer}}

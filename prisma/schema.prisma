@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Reports {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  number            String?     @unique
+  camera            Cameras     @relation(fields: [cameraId], references: [id])
+  cameraId          String      @map("camera_id") @db.ObjectId
+  status            Status      @relation(fields: [statusId], references: [id])
+  statusId          String      @map("status_id") @db.ObjectId
+  client            Clients     @relation(fields: [clientId], references: [id])
+  clientId          String      @map("client_id") @db.ObjectId
+  descriptionClient String      @map("description_client")
+  descriptionTech   String?     @map("description_tech")
+  pending           Boolean     @default(true)
+  denied            Boolean     @default(false)
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  deleted           Boolean     @default(false)
+  deletedAt         DateTime?   @map("deleted_at")
+  histories         Histories[]
+  servicesIDs       String[]    @db.ObjectId
+  services          Services[]  @relation(fields: [servicesIDs], references: [id])
+  ordersIDs         String[]    @db.ObjectId
+  orders            Orders[]    @relation(fields: [ordersIDs], references: [id])
+}
+
+model Services {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  idOmie         String    @map("id_omie")
+  name           String
+  pricing        String
+  pricingPartner String    @map("pricing_partner")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deleted        Boolean   @default(false)
+  deletedAt      DateTime? @map("deleted_at")
+  reportsIDs     String[]  @db.ObjectId
+  reports        Reports[] @relation(fields: [reportsIDs], references: [id])
+}
+
+model Users {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String      @unique
+  password  String
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  deleted   Boolean     @default(false)
+  deletedAt DateTime?   @map("deleted_at")
+  histories Histories[]
+}
+
+model Clients {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  email       String
+  document    String
+  phone       String?
+  company     String?
+  description String?
+  partner     Boolean
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deleted     Boolean    @default(false)
+  deletedAt   DateTime?  @map("deleted_at")
+  reports     Reports[]
+  billings    Billings[]
+}
+
+model Billings {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  client       Clients   @relation(fields: [clientId], references: [id])
+  clientId     String    @map("client_id") @db.ObjectId
+  companyName  String    @map("company_name")
+  document     String
+  fantasyName  String    @map("fantasy_name")
+  phone        String
+  street       String
+  neighborhood String
+  number       String
+  unit         String
+  state        String
+  city         String
+  zipCode      String    @map("zip_code")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deleted      Boolean   @default(false)
+  deletedAt    DateTime? @map("deleted_at")
+  orders       Orders[]
+}
+
+model Orders {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  idOmie        String    @map("id_omie")
+  reportsIDs    String[]  @db.ObjectId
+  reports       Reports[] @relation(fields: [reportsIDs], references: [id])
+  billingId     String    @map("billing_id") @db.ObjectId
+  billing       Billings  @relation(fields: [billingId], references: [id])
+  evaluationFee Boolean   @default(false) @map("evaluation_fee")
+  shipping      String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deleted       Boolean   @default(false)
+  deletedAt     DateTime? @map("deleted_at")
+}
+
+model Status {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  backgroundColor String    @map("background_color")
+  textColor       String    @map("text_color")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deleted         Boolean   @default(false)
+  deletedAt       DateTime? @map("deleted_at")
+  reports         Reports[]
+}
+
+model Cameras {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  idOrderOmie        String?   @map("id_order_omie")
+  model              String?
+  brand              String?
+  invoice            String?
+  warrantyFinishDate DateTime?
+  serialNumber       String    @map("serial_number")
+  replaced           Boolean   @default(false)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deleted            Boolean   @default(false)
+  deletedAt          DateTime? @map("deleted_at")
+  reports            Reports[]
+}
+
+model Histories {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  user         Users     @relation(fields: [userId], references: [id])
+  userId       String    @map("user_id") @db.ObjectId
+  report       Reports   @relation(fields: [reportId], references: [id])
+  reportId     String    @map("report_id") @db.ObjectId
+  changeString String    @map("change_string")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deleted      Boolean   @default(false)
+  deletedAt    DateTime? @map("deleted_at")
+}
