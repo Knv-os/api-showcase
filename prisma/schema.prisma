@@ -28,7 +28,6 @@ enum PaymentStatus {
   REFUNDED
 }
 
-// --- Modelos ---
 
 model User {
   id            String   @id @default(uuid())
@@ -62,12 +61,11 @@ model Measurement {
   clientId  String
   client    Client   @relation(fields: [clientId], references: [id])
   
-  // Dados técnicos (Exemplo de medidas de alfaiataria)
   neck      Float?
   chest     Float?
   waist     Float?
   sleeve    Float?
-  length    Float?   // Comprimento da peça
+  length    Float?
   
   observations String? @db.Text
   createdAt    DateTime @default(now()) // Isso garante o histórico imutável
@@ -79,7 +77,7 @@ model Supplier {
   id        String    @id @default(uuid())
   name      String
   contact   String?
-  category  String?   // Ex: Tecidos, Botões
+  category  String?   
   products  Product[]
 
   @@map("suppliers")

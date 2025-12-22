@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { usersRoutes } from "./interfaces/http/users.routes";
 import { clientsRoutes } from "./interfaces/http/clients.routes";
+import { ordersRoutes } from "./interfaces/http/orders.routes";
 
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL || "info" },
@@ -18,6 +19,7 @@ app.register(async (instance) => {
 
   await usersRoutes(instance);
   await clientsRoutes(instance);
+  await ordersRoutes(instance);
 });
 
 app.get("/health", async () => {
@@ -33,7 +35,8 @@ app.setErrorHandler((error: any, _request, reply) => {
 
   if (
     error?.message === "User not found" ||
-    error?.message === "Client not found"
+    error?.message === "Client not found" ||
+    error?.message === "Order not found"
   ) {
     return reply.status(404).send({ error: error.message });
   }
@@ -61,7 +64,7 @@ app.setErrorHandler((error: any, _request, reply) => {
   return reply.status(500).send({ error: "Internal Server Error" });
 });
 
-const PORT = Number(process.env.PORT || 3333);
+const PORT = Number(process.env.PORT || 3009);
 const HOST = process.env.HOST || "0.0.0.0";
 
 app

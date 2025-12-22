@@ -18,29 +18,78 @@ export class PrismaClientRepository implements ClientRepository {
         document: data.document ?? null,
       },
     });
-    return new Client({ ...created });
+    return new Client({
+      id: created.id,
+      name: created.name,
+      email: created.email ?? null,
+      phone: created.phone,
+      document: created.document ?? null,
+      createdAt: created.createdAt,
+      updatedAt: created.createdAt,
+    });
   }
 
   async findById(id: string): Promise<Client | null> {
     const found = await prisma.client.findUnique({ where: { id } });
-    return found ? new Client({ ...found }) : null;
+    return found
+      ? new Client({
+          id: found.id,
+          name: found.name,
+          email: found.email ?? null,
+          phone: found.phone,
+          document: found.document ?? null,
+          createdAt: found.createdAt,
+          updatedAt: found.createdAt,
+        })
+      : null;
   }
 
   async findByEmail(email: string): Promise<Client | null> {
     const found = await prisma.client.findUnique({ where: { email } });
-    return found ? new Client({ ...found }) : null;
+    return found
+      ? new Client({
+          id: found.id,
+          name: found.name,
+          email: found.email ?? null,
+          phone: found.phone,
+          document: found.document ?? null,
+          createdAt: found.createdAt,
+          updatedAt: found.createdAt,
+        })
+      : null;
   }
 
   async findByDocument(document: string): Promise<Client | null> {
     const found = await prisma.client.findUnique({ where: { document } });
-    return found ? new Client({ ...found }) : null;
+    return found
+      ? new Client({
+          id: found.id,
+          name: found.name,
+          email: found.email ?? null,
+          phone: found.phone,
+          document: found.document ?? null,
+          createdAt: found.createdAt,
+          updatedAt: found.createdAt,
+        })
+      : null;
   }
 
   async list(): Promise<Client[]> {
     const rows = await prisma.client.findMany({
       orderBy: { createdAt: "desc" },
     });
-    return rows.map((r) => new Client({ ...r }));
+    return rows.map(
+      (r) =>
+        new Client({
+          id: r.id,
+          name: r.name,
+          email: r.email ?? null,
+          phone: r.phone,
+          document: r.document ?? null,
+          createdAt: r.createdAt,
+          updatedAt: r.createdAt,
+        })
+    );
   }
 
   async update(id: string, data: UpdateClientData): Promise<Client> {
@@ -53,7 +102,15 @@ export class PrismaClientRepository implements ClientRepository {
         document: data.document,
       },
     });
-    return new Client({ ...updated });
+    return new Client({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email ?? null,
+      phone: updated.phone,
+      document: updated.document ?? null,
+      createdAt: updated.createdAt,
+      updatedAt: new Date(),
+    });
   }
 
   async delete(id: string): Promise<void> {
