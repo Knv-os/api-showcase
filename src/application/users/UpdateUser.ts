@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 const updateUserSchema = z
   .object({
     id: z.string().uuid(),
-    email: z.string().email().optional(),
+    email: z.string().trim().toLowerCase().email().optional(),
     name: z.string().min(1).optional(),
     password: z.string().min(6).optional(),
     role: z.string().optional(),
