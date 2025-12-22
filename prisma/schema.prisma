@@ -1,153 +1,148 @@
+// generator client
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model Reports {
-  id                String      @id @default(auto()) @map("_id") @db.ObjectId
-  number            String?     @unique
-  camera            Cameras     @relation(fields: [cameraId], references: [id])
-  cameraId          String      @map("camera_id") @db.ObjectId
-  status            Status      @relation(fields: [statusId], references: [id])
-  statusId          String      @map("status_id") @db.ObjectId
-  client            Clients     @relation(fields: [clientId], references: [id])
-  clientId          String      @map("client_id") @db.ObjectId
-  descriptionClient String      @map("description_client")
-  descriptionTech   String?     @map("description_tech")
-  pending           Boolean     @default(true)
-  denied            Boolean     @default(false)
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
-  deleted           Boolean     @default(false)
-  deletedAt         DateTime?   @map("deleted_at")
-  histories         Histories[]
-  servicesIDs       String[]    @db.ObjectId
-  services          Services[]  @relation(fields: [servicesIDs], references: [id])
-  ordersIDs         String[]    @db.ObjectId
-  orders            Orders[]    @relation(fields: [ordersIDs], references: [id])
+// --- Enumerações (Refletindo a State Machine) ---
+
+enum OrderStatus {
+  DRAFT
+  MEASURING
+  CUTTING
+  STITCHING
+  TRIAL
+  READY
+  DELIVERED
+  CANCELLED
 }
 
-model Services {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  idOmie         String    @map("id_omie")
-  name           String
-  pricing        String
-  pricingPartner String    @map("pricing_partner")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deleted        Boolean   @default(false)
-  deletedAt      DateTime? @map("deleted_at")
-  reportsIDs     String[]  @db.ObjectId
-  reports        Reports[] @relation(fields: [reportsIDs], references: [id])
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
 }
 
-model Users {
-  id        String      @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  email     String      @unique
-  password  String
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
-  deleted   Boolean     @default(false)
-  deletedAt DateTime?   @map("deleted_at")
-  histories Histories[]
+// --- Modelos ---
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  password_hash String
+  role          String   @default("STAFF") // Ex: ADMIN, STAFF
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("users")
 }
 
-model Clients {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  email       String
-  document    String
-  phone       String?
-  company     String?
-  description String?
-  partner     Boolean
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-  deleted     Boolean    @default(false)
-  deletedAt   DateTime?  @map("deleted_at")
-  reports     Reports[]
-  billings    Billings[]
-}
-
-model Billings {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  client       Clients   @relation(fields: [clientId], references: [id])
-  clientId     String    @map("client_id") @db.ObjectId
-  companyName  String    @map("company_name")
-  document     String
-  fantasyName  String    @map("fantasy_name")
+model Client {
+  id           String        @id @default(uuid())
+  name         String
+  email        String?       @unique
   phone        String
-  street       String
-  neighborhood String
-  number       String
-  unit         String
-  state        String
-  city         String
-  zipCode      String    @map("zip_code")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deleted      Boolean   @default(false)
-  deletedAt    DateTime? @map("deleted_at")
-  orders       Orders[]
+  document     String?       @unique // CPF/CNPJ
+  createdAt    DateTime      @default(now())
+  
+  // Relações
+  orders       Order[]
+  measurements Measurement[] // Histórico de medidas
+
+  @@map("clients")
 }
 
-model Orders {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  idOmie        String    @map("id_omie")
-  reportsIDs    String[]  @db.ObjectId
-  reports       Reports[] @relation(fields: [reportsIDs], references: [id])
-  billingId     String    @map("billing_id") @db.ObjectId
-  billing       Billings  @relation(fields: [billingId], references: [id])
-  evaluationFee Boolean   @default(false) @map("evaluation_fee")
-  shipping      String?
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  deleted       Boolean   @default(false)
-  deletedAt     DateTime? @map("deleted_at")
+model Measurement {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  
+  // Dados técnicos (Exemplo de medidas de alfaiataria)
+  neck      Float?
+  chest     Float?
+  waist     Float?
+  sleeve    Float?
+  length    Float?   // Comprimento da peça
+  
+  observations String? @db.Text
+  createdAt    DateTime @default(now()) // Isso garante o histórico imutável
+
+  @@map("measurements")
 }
 
-model Status {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  backgroundColor String    @map("background_color")
-  textColor       String    @map("text_color")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  deleted         Boolean   @default(false)
-  deletedAt       DateTime? @map("deleted_at")
-  reports         Reports[]
+model Supplier {
+  id        String    @id @default(uuid())
+  name      String
+  contact   String?
+  category  String?   // Ex: Tecidos, Botões
+  products  Product[]
+
+  @@map("suppliers")
 }
 
-model Cameras {
-  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
-  idOrderOmie        String?   @map("id_order_omie")
-  model              String?
-  brand              String?
-  invoice            String?
-  warrantyFinishDate DateTime?
-  serialNumber       String    @map("serial_number")
-  replaced           Boolean   @default(false)
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-  deleted            Boolean   @default(false)
-  deletedAt          DateTime? @map("deleted_at")
-  reports            Reports[]
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  basePrice   Decimal  @db.Decimal(10, 2)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  
+  orderItems  OrderItem[]
+
+  @@map("products")
 }
 
-model Histories {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  user         Users     @relation(fields: [userId], references: [id])
-  userId       String    @map("user_id") @db.ObjectId
-  report       Reports   @relation(fields: [reportId], references: [id])
-  reportId     String    @map("report_id") @db.ObjectId
-  changeString String    @map("change_string")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deleted      Boolean   @default(false)
-  deletedAt    DateTime? @map("deleted_at")
+model Order {
+  id           String      @id @default(uuid())
+  status       OrderStatus @default(DRAFT)
+  totalValue   Decimal     @db.Decimal(10, 2)
+  
+  // Datas de controle de alfaiataria
+  trialDate    DateTime?   // Data da prova
+  deliveryDate DateTime?   // Data de entrega prometida
+  
+  // Relações
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id])
+  items        OrderItem[]
+  payments     Payment[]
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  
+  quantity  Int     @default(1)
+  unitPrice Decimal @db.Decimal(10, 2) // Preço no momento da venda (snapshot)
+
+  @@map("order_items")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id])
+  amount         Decimal       @db.Decimal(10, 2)
+  status         PaymentStatus @default(PENDING)
+  method         String        // PIX, CARD, CASH
+  installments   Int           @default(1) // Parcelas
+  transactionId  String?       // ID externo do gateway de pagamento
+  
+  createdAt      DateTime      @default(now())
+
+  @@map("payments")
 }

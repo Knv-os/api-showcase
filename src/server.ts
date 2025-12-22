@@ -1,35 +1,76 @@
-import App from '@/app';
-import AuthRoute from '@apis/auth/routes/auth.route';
-import IndexRoute from '@apis/_general/routes/index.route';
-import UsersRoute from '@apis/users/routes/users.route';
-import UsersCognitoRoute from '@apis/users_cognito/routes/users_cognito.route';
-import StatusRoute from '@apis/status/routes/status.route';
-import HistoriesRoute from '@apis/histories/routes/histories.route';
-import ServicesRoute from '@apis/services/routes/services.route';
-import ReportsRoute from '@apis/reports/routes/reports.route';
-import ClientsRoute from '@apis/clients/routes/clients.route';
-import CamerasRoute from '@apis/cameras/routes/cameras.route';
-import OmieRoute from '@apis/omie/routes/omie.route';
-import BillingsRoute from '@apis/billings/routes/billings.route';
-import OrdersRoute from '@apis/orders/routes/orders.route';
-import validateEnv from './utils/validateEnv';
+import "dotenv/config";
+import Fastify from "fastify";
+import { ZodError } from "zod";
+import { Prisma } from "@prisma/client";
+import { usersRoutes } from "./interfaces/http/users.routes";
 
-validateEnv();
+const app = Fastify({
+  logger: { level: process.env.LOG_LEVEL || "info" },
+});
 
-const app = new App([
-  new IndexRoute(),
-  new AuthRoute(),
-  new UsersRoute(),
-  new UsersCognitoRoute(),
-  new StatusRoute(),
-  new HistoriesRoute(),
-  new ServicesRoute(),
-  new ReportsRoute(),
-  new CamerasRoute(),
-  new ClientsRoute(),
-  new OmieRoute(),
-  new BillingsRoute(),
-  new OrdersRoute(),
-]);
+app.register(async (instance) => {
+  // Helmet-like headers via fastify-helmet alternative: using helmet middleware compatible via addHook
+  instance.addHook("onRequest", async (_req, reply) => {
+    // Minimal secure headers; for full feature, use fastify-helmet package
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "SAMEORIGIN");
+    reply.header("X-XSS-Protection", "0");
+  });
 
-app.listen();
+  await usersRoutes(instance);
+});
+
+app.get("/health", async () => {
+  return { status: "ok" };
+});
+
+app.setErrorHandler((error: any, _request, reply) => {
+  // Zod validation -> 400
+  if (error instanceof ZodError) {
+    return reply
+      .status(400)
+      .send({ error: "Validation error", issues: error.issues });
+  }
+
+  // Domain not found
+  if (error?.message === "User not found") {
+    return reply.status(404).send({ error: error.message });
+  }
+
+  // Domain bad request
+  if (
+    error?.message === "Email already in use" ||
+    (typeof error?.message === "string" &&
+      error.message.includes("At least one field"))
+  ) {
+    return reply.status(400).send({ error: error.message });
+  }
+
+  // Prisma unique constraint -> 409
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      return reply
+        .status(409)
+        .send({
+          error: "Unique constraint failed",
+          target: (error.meta as any)?.target,
+        });
+    }
+  }
+
+  app.log.error(error);
+  return reply.status(500).send({ error: "Internal Server Error" });
+});
+
+const PORT = Number(process.env.PORT || 3333);
+const HOST = process.env.HOST || "0.0.0.0";
+
+app
+  .listen({ port: PORT, host: HOST })
+  .then(() => {
+    app.log.info(`HTTP server listening on http://${HOST}:${PORT}`);
+  })
+  .catch((err) => {
+    app.log.error(err);
+    process.exit(1);
+  });
