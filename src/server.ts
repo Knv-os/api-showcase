@@ -5,6 +5,8 @@ import { Prisma } from "@prisma/client";
 import { usersRoutes } from "./interfaces/http/users.routes";
 import { clientsRoutes } from "./interfaces/http/clients.routes";
 import { ordersRoutes } from "./interfaces/http/orders.routes";
+import { productsRoutes } from "./interfaces/http/products.routes";
+import { suppliersRoutes } from "./interfaces/http/suppliers.routes";
 
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL || "info" },
@@ -20,6 +22,8 @@ app.register(async (instance) => {
   await usersRoutes(instance);
   await clientsRoutes(instance);
   await ordersRoutes(instance);
+  await suppliersRoutes(instance);
+  await productsRoutes(instance);
 });
 
 app.get("/health", async () => {
@@ -36,7 +40,9 @@ app.setErrorHandler((error: any, _request, reply) => {
   if (
     error?.message === "User not found" ||
     error?.message === "Client not found" ||
-    error?.message === "Order not found"
+    error?.message === "Order not found" ||
+    error?.message === "Supplier not found" ||
+    error?.message === "Product not found"
   ) {
     return reply.status(404).send({ error: error.message });
   }

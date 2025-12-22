@@ -6,6 +6,7 @@ import { GetOrder } from "../../application/orders/GetOrder";
 import { ListOrders } from "../../application/orders/ListOrders";
 import { UpdateOrder } from "../../application/orders/UpdateOrder";
 import { DeleteOrder } from "../../application/orders/DeleteOrder";
+import { prisma } from "../../infrastructure/prisma/client";
 
 export async function ordersRoutes(app: FastifyInstance) {
   const repo = new PrismaOrderRepository();
@@ -37,19 +38,43 @@ export async function ordersRoutes(app: FastifyInstance) {
 
     const body = bodySchema.parse(request.body);
     const order = await createOrder.execute(body);
-    return reply.code(201).send(order);
+    const expanded = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        payments: true,
+        items: { include: { product: true } },
+        client: true,
+      },
+    });
+    return reply.code(201).send(expanded);
   });
 
   app.get("/orders", async (_request, reply) => {
-    const orders = await listOrders.execute();
+    await listOrders.execute();
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        payments: true,
+        items: { include: { product: true } },
+        client: true,
+      },
+    });
     return reply.send(orders);
   });
 
   app.get("/orders/:id", async (request, reply) => {
     const paramsSchema = z.object({ id: z.string().uuid() });
     const { id } = paramsSchema.parse(request.params);
-    const order = await getOrder.execute({ id });
-    return reply.send(order);
+    await getOrder.execute({ id });
+    const expanded = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        payments: true,
+        items: { include: { product: true } },
+        client: true,
+      },
+    });
+    return reply.send(expanded);
   });
 
   app.put("/orders/:id", async (request, reply) => {
@@ -65,7 +90,15 @@ export async function ordersRoutes(app: FastifyInstance) {
     const body = bodySchema.parse(request.body);
 
     const order = await updateOrder.execute({ id, ...body });
-    return reply.send(order);
+    const expanded = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        payments: true,
+        items: { include: { product: true } },
+        client: true,
+      },
+    });
+    return reply.send(expanded);
   });
 
   app.delete("/orders/:id", async (request, reply) => {
