@@ -7,6 +7,8 @@ import { clientsRoutes } from "./interfaces/http/clients.routes";
 import { ordersRoutes } from "./interfaces/http/orders.routes";
 import { productsRoutes } from "./interfaces/http/products.routes";
 import { suppliersRoutes } from "./interfaces/http/suppliers.routes";
+import { measurementsRoutes } from "./interfaces/http/measurements.routes";
+import { paymentsRoutes } from "./interfaces/http/payments.routes";
 
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL || "info" },
@@ -24,6 +26,8 @@ app.register(async (instance) => {
   await ordersRoutes(instance);
   await productsRoutes(instance);
   await suppliersRoutes(instance);
+  await measurementsRoutes(instance);
+  await paymentsRoutes(instance);
 });
 
 app.get("/health", async () => {

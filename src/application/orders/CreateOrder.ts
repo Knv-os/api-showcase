@@ -19,6 +19,15 @@ const createOrderSchema = z.object({
   status: z.enum(orderStatus).optional(),
   trialDate: z.coerce.date().nullish(),
   deliveryDate: z.coerce.date().nullish(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.number().int().positive(),
+        unitPrice: z.number().nonnegative(),
+      })
+    )
+    .optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
@@ -35,6 +44,7 @@ export class CreateOrder {
       status: data.status ?? "DRAFT",
       trialDate: data.trialDate ?? null,
       deliveryDate: data.deliveryDate ?? null,
+      items: data.items,
     });
 
     return order;

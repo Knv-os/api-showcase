@@ -6,6 +6,11 @@ export interface CreateOrderData {
   status?: string;
   trialDate?: Date | null;
   deliveryDate?: Date | null;
+  items?: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
 }
 
 export interface UpdateOrderData {

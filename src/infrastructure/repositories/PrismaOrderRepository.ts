@@ -17,6 +17,17 @@ export class PrismaOrderRepository implements OrderRepository {
         status: (data.status as any) ?? "DRAFT",
         trialDate: data.trialDate ?? null,
         deliveryDate: data.deliveryDate ?? null,
+        items:
+          data.items && data.items.length > 0
+            ? {
+                create: data.items.map((it) => ({
+                  id: randomUUID(),
+                  productId: it.productId,
+                  quantity: it.quantity,
+                  unitPrice: it.unitPrice,
+                })),
+              }
+            : undefined,
       },
     });
 
