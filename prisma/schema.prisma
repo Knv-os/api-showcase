@@ -34,7 +34,7 @@ model User {
   email         String   @unique
   name          String
   password_hash String
-  role          String   @default("STAFF") // Ex: ADMIN, STAFF
+  role          String   @default("STAFF") 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

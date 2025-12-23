@@ -22,8 +22,8 @@ app.register(async (instance) => {
   await usersRoutes(instance);
   await clientsRoutes(instance);
   await ordersRoutes(instance);
-  await suppliersRoutes(instance);
   await productsRoutes(instance);
+  await suppliersRoutes(instance);
 });
 
 app.get("/health", async () => {
@@ -37,20 +37,12 @@ app.setErrorHandler((error: any, _request, reply) => {
       .send({ error: "Validation error", issues: error.issues });
   }
 
-  if (
-    error?.message === "User not found" ||
-    error?.message === "Client not found" ||
-    error?.message === "Order not found" ||
-    error?.message === "Supplier not found" ||
-    error?.message === "Product not found"
-  ) {
+  if (error?.message === "User not found") {
     return reply.status(404).send({ error: error.message });
   }
 
   if (
     error?.message === "Email already in use" ||
-    error?.message === "Client email already in use" ||
-    error?.message === "Client document already in use" ||
     (typeof error?.message === "string" &&
       error.message.includes("At least one field"))
   ) {
@@ -64,13 +56,24 @@ app.setErrorHandler((error: any, _request, reply) => {
         target: (error.meta as any)?.target,
       });
     }
+    if (error.code === "P2003") {
+      return reply.status(409).send({
+        error: "Foreign key constraint failed",
+        meta: error.meta,
+      });
+    }
+    if (error.code === "P2025") {
+      return reply.status(404).send({
+        error: "Record not found",
+      });
+    }
   }
 
   app.log.error(error);
   return reply.status(500).send({ error: "Internal Server Error" });
 });
 
-const PORT = Number(process.env.PORT || 3009);
+const PORT = Number(process.env.PORT || 3333);
 const HOST = process.env.HOST || "0.0.0.0";
 
 app
