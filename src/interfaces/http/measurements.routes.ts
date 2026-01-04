@@ -7,6 +7,7 @@ import { ListMeasurements } from "../../application/measurements/ListMeasurement
 import { UpdateMeasurement } from "../../application/measurements/UpdateMeasurement";
 import { DeleteMeasurement } from "../../application/measurements/DeleteMeasurement";
 import { prisma } from "../../infrastructure/prisma/client";
+import { getPaginationParams, buildPaginated } from "../../shared/pagination";
 
 export async function measurementsRoutes(app: FastifyInstance) {
   const repo = new PrismaMeasurementRepository();
@@ -36,12 +37,39 @@ export async function measurementsRoutes(app: FastifyInstance) {
   });
 
   app.get("/measurements", async (_request, reply) => {
-    await listMeasurements.execute();
-    const rows = await prisma.measurement.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { client: true },
+    const { page, perPage } = getPaginationParams((_request as any).query);
+    const querySchema = z.object({
+      q: z.string().trim().min(1).optional(),
+      sortBy: z.enum(["createdAt"]).default("createdAt").optional(),
+      sortOrder: z.enum(["asc", "desc"]).default("desc").optional(),
     });
-    return reply.send(rows);
+    const {
+      q,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = querySchema.parse((_request as any).query ?? {});
+
+    await listMeasurements.execute();
+    const where = q
+      ? {
+          OR: [
+            { observations: { contains: q, mode: "insensitive" as const } },
+            { client: { name: { contains: q, mode: "insensitive" as const } } },
+          ],
+        }
+      : undefined;
+
+    const [total, rows] = await Promise.all([
+      prisma.measurement.count({ where }),
+      prisma.measurement.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        include: { client: true },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+    ]);
+    return reply.send(buildPaginated(rows, page, perPage, total));
   });
 
   app.get("/measurements/:id", async (request, reply) => {

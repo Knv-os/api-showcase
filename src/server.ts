@@ -15,12 +15,76 @@ const app = Fastify({
   logger: { level: process.env.LOG_LEVEL || "info" },
 });
 
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:3000")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function applyCorsHeaders(
+  origin: string | undefined,
+  request: any,
+  reply: any
+) {
+  if (origin && allowedOrigins.includes(origin)) {
+    reply.header("Access-Control-Allow-Origin", origin);
+    reply.header("Vary", "Origin");
+    reply.header("Access-Control-Allow-Credentials", "true");
+    reply.header(
+      "Access-Control-Allow-Headers",
+      request.headers["access-control-request-headers"] ||
+        "Content-Type, Authorization"
+    );
+    reply.header(
+      "Access-Control-Allow-Methods",
+      request.headers["access-control-request-method"] ||
+        "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
+  }
+}
+
+// Hooks globais para garantir CORS em qualquer resposta
+app.addHook("onRequest", async (request, reply) => {
+  const origin = request.headers.origin as string | undefined;
+  applyCorsHeaders(origin, request, reply);
+  if (request.method === "OPTIONS") {
+    return reply.status(204).send();
+  }
+});
+
+app.addHook("onSend", async (request, reply, payload) => {
+  const origin = request.headers.origin as string | undefined;
+  applyCorsHeaders(origin, request, reply);
+
+  try {
+    const hasContentType = reply.getHeader("content-type");
+    const isNoContent = reply.statusCode === 204;
+
+    if (!isNoContent && !hasContentType) {
+      if (
+        payload !== null &&
+        payload !== undefined &&
+        typeof payload === "object" &&
+        // Fastify serializa objetos para JSON; evitamos definir para Buffer/stream
+        !(payload instanceof Buffer)
+      ) {
+        reply.header("Content-Type", "application/json; charset=utf-8");
+      }
+    }
+  } catch {
+    // não interromper o fluxo de resposta em caso de erro neste hook
+  }
+
+  return payload as any;
+});
+
 app.register(async (instance) => {
   instance.addHook("onRequest", async (_req, reply) => {
     reply.header("X-Content-Type-Options", "nosniff");
     reply.header("X-Frame-Options", "SAMEORIGIN");
     reply.header("X-XSS-Protection", "0");
   });
+
+  // Mantemos as rotas e demais registradores
 
   await usersRoutes(instance);
   await authRoutes(instance);

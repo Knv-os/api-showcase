@@ -7,6 +7,7 @@ import { ListPayments } from "../../application/payments/ListPayments";
 import { UpdatePayment } from "../../application/payments/UpdatePayment";
 import { prisma } from "../../infrastructure/prisma/client";
 import { DeletePayment } from "../../application/payments/DeletePayment";
+import { getPaginationParams, buildPaginated } from "../../shared/pagination";
 
 export async function paymentsRoutes(app: FastifyInstance) {
   const repo = new PrismaPaymentRepository();
@@ -37,12 +38,54 @@ export async function paymentsRoutes(app: FastifyInstance) {
   });
 
   app.get("/payments", async (_request, reply) => {
-    await listPayments.execute();
-    const rows = await prisma.payment.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { order: { include: { client: true } } },
+    const { page, perPage } = getPaginationParams((_request as any).query);
+    const querySchema = z.object({
+      q: z.string().trim().min(1).optional(),
+      status: z.enum(["PENDING", "PARTIAL", "PAID", "REFUNDED"]).optional(),
+      sortBy: z
+        .enum(["createdAt", "amount", "status"])
+        .default("createdAt")
+        .optional(),
+      sortOrder: z.enum(["asc", "desc"]).default("desc").optional(),
     });
-    return reply.send(rows);
+    const {
+      q,
+      status,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = querySchema.parse((_request as any).query ?? {});
+
+    await listPayments.execute();
+    const where = {
+      ...(status ? { status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { method: { contains: q, mode: "insensitive" as const } },
+              { transactionId: { contains: q, mode: "insensitive" as const } },
+              {
+                order: {
+                  client: {
+                    name: { contains: q, mode: "insensitive" as const },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    } as any;
+
+    const [total, rows] = await Promise.all([
+      prisma.payment.count({ where }),
+      prisma.payment.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        include: { order: { include: { client: true } } },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+    ]);
+    return reply.send(buildPaginated(rows, page, perPage, total));
   });
 
   app.get("/payments/:id", async (request, reply) => {

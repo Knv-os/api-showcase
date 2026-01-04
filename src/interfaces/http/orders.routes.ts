@@ -7,6 +7,7 @@ import { ListOrders } from "../../application/orders/ListOrders";
 import { UpdateOrder } from "../../application/orders/UpdateOrder";
 import { DeleteOrder } from "../../application/orders/DeleteOrder";
 import { prisma } from "../../infrastructure/prisma/client";
+import { getPaginationParams, buildPaginated } from "../../shared/pagination";
 
 export async function ordersRoutes(app: FastifyInstance) {
   const repo = new PrismaOrderRepository();
@@ -59,16 +60,64 @@ export async function ordersRoutes(app: FastifyInstance) {
   });
 
   app.get("/orders", async (_request, reply) => {
-    await listOrders.execute();
-    const orders = await prisma.order.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        payments: true,
-        items: { include: { product: true } },
-        client: true,
-      },
+    const { page, perPage } = getPaginationParams((_request as any).query);
+    const querySchema = z.object({
+      q: z.string().trim().min(1).optional(),
+      status: z
+        .enum([
+          "DRAFT",
+          "MEASURING",
+          "CUTTING",
+          "STITCHING",
+          "TRIAL",
+          "READY",
+          "DELIVERED",
+          "CANCELLED",
+        ])
+        .optional(),
+      sortBy: z
+        .enum(["createdAt", "totalValue", "status"])
+        .default("createdAt")
+        .optional(),
+      sortOrder: z.enum(["asc", "desc"]).default("desc").optional(),
     });
-    return reply.send(orders);
+    const {
+      q,
+      status,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = querySchema.parse((_request as any).query ?? {});
+
+    await listOrders.execute();
+    const where = {
+      ...(status ? { status } : {}),
+      ...(q
+        ? {
+            OR: [
+              {
+                client: { name: { contains: q, mode: "insensitive" as const } },
+              },
+              { id: { contains: q } },
+            ],
+          }
+        : {}),
+    } as any;
+
+    const [total, rows] = await Promise.all([
+      prisma.order.count({ where }),
+      prisma.order.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          payments: true,
+          items: { include: { product: true } },
+          client: true,
+        },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+    ]);
+    return reply.send(buildPaginated(rows, page, perPage, total));
   });
 
   app.get("/orders/:id", async (request, reply) => {

@@ -7,6 +7,7 @@ import { ListProducts } from "../../application/products/ListProducts";
 import { UpdateProduct } from "../../application/products/UpdateProduct";
 import { DeleteProduct } from "../../application/products/DeleteProduct";
 import { prisma } from "../../infrastructure/prisma/client";
+import { getPaginationParams, buildPaginated } from "../../shared/pagination";
 
 export async function productsRoutes(app: FastifyInstance) {
   const repo = new PrismaProductRepository();
@@ -34,12 +35,39 @@ export async function productsRoutes(app: FastifyInstance) {
   });
 
   app.get("/products", async (_request, reply) => {
-    await listProducts.execute();
-    const products = await prisma.product.findMany({
-      orderBy: { name: "asc" },
-      include: { supplier: true },
+    const { page, perPage } = getPaginationParams((_request as any).query);
+    const querySchema = z.object({
+      q: z.string().trim().min(1).optional(),
+      sortBy: z.enum(["name", "createdAt"]).default("name").optional(),
+      sortOrder: z.enum(["asc", "desc"]).default("asc").optional(),
     });
-    return reply.send(products);
+    const {
+      q,
+      sortBy = "name",
+      sortOrder = "asc",
+    } = querySchema.parse((_request as any).query ?? {});
+
+    await listProducts.execute();
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : undefined;
+
+    const [total, rows] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        include: { supplier: true },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+    ]);
+    return reply.send(buildPaginated(rows, page, perPage, total));
   });
 
   app.get("/products/:id", async (request, reply) => {

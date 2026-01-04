@@ -1,6 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { PrismaClientRepository } from "../../infrastructure/repositories/PrismaClientRepository";
+import { prisma } from "../../infrastructure/prisma/client";
+import { getPaginationParams, buildPaginated } from "../../shared/pagination";
 import { CreateClient } from "../../application/clients/CreateClient";
 import { GetClient } from "../../application/clients/GetClient";
 import { ListClients } from "../../application/clients/ListClients";
@@ -26,8 +28,41 @@ export async function clientsRoutes(app: FastifyInstance) {
   });
 
   app.get("/clients", async (_request, reply) => {
-    const clients = await listClients.execute();
-    return reply.send(clients);
+    const { page, perPage } = getPaginationParams((_request as any).query);
+    const querySchema = z.object({
+      q: z.string().trim().min(1).optional(),
+      sortBy: z.enum(["name", "createdAt"]).default("name").optional(),
+      sortOrder: z.enum(["asc", "desc"]).default("asc").optional(),
+    });
+    const {
+      q,
+      sortBy = "name",
+      sortOrder = "asc",
+    } = querySchema.parse((_request as any).query ?? {});
+
+    await listClients.execute();
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { email: { contains: q, mode: "insensitive" as const } },
+            { phone: { contains: q, mode: "insensitive" as const } },
+            { document: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : undefined;
+
+    const [total, rows] = await Promise.all([
+      prisma.client.count({ where }),
+      prisma.client.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+    ]);
+
+    return reply.send(buildPaginated(rows, page, perPage, total));
   });
 
   app.get("/clients/:id", async (request, reply) => {
