@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { usersRoutes } from "./interfaces/http/users.routes";
+import { authRoutes } from "./interfaces/http/auth.routes";
 import { clientsRoutes } from "./interfaces/http/clients.routes";
 import { ordersRoutes } from "./interfaces/http/orders.routes";
 import { productsRoutes } from "./interfaces/http/products.routes";
@@ -22,6 +23,7 @@ app.register(async (instance) => {
   });
 
   await usersRoutes(instance);
+  await authRoutes(instance);
   await clientsRoutes(instance);
   await ordersRoutes(instance);
   await productsRoutes(instance);
@@ -39,6 +41,16 @@ app.setErrorHandler((error: any, _request, reply) => {
     return reply
       .status(400)
       .send({ error: "Validation error", issues: error.issues });
+  }
+
+  if (
+    error?.message === "Invalid credentials" ||
+    error?.message === "Invalid token" ||
+    error?.message === "Invalid signature" ||
+    error?.message === "Token expired" ||
+    error?.message === "Missing refresh token"
+  ) {
+    return reply.status(401).send({ error: error.message });
   }
 
   if (error?.message === "User not found") {

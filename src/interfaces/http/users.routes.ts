@@ -6,6 +6,8 @@ import { GetUser } from "../../application/users/GetUser";
 import { ListUsers } from "../../application/users/ListUsers";
 import { UpdateUser } from "../../application/users/UpdateUser";
 import { DeleteUser } from "../../application/users/DeleteUser";
+import { ensureAuth } from "./auth.middleware";
+import { JwtTokenProvider } from "../../infrastructure/tokens/JwtTokenProvider";
 
 export async function usersRoutes(app: FastifyInstance) {
   const repo = new PrismaUserRepository();
@@ -14,6 +16,11 @@ export async function usersRoutes(app: FastifyInstance) {
   const listUsers = new ListUsers(repo);
   const updateUser = new UpdateUser(repo);
   const deleteUser = new DeleteUser(repo);
+
+  const accessSecret = process.env.JWT_ACCESS_SECRET || "dev-access-secret";
+  const refreshSecret = process.env.JWT_REFRESH_SECRET || "dev-refresh-secret";
+  const tokens = new JwtTokenProvider(accessSecret, refreshSecret);
+  const auth = ensureAuth(tokens);
 
   app.post("/users", async (request, reply) => {
     const bodySchema = z.object({
@@ -36,7 +43,7 @@ export async function usersRoutes(app: FastifyInstance) {
     });
   });
 
-  app.get("/users", async (_request, reply) => {
+  app.get("/users", { onRequest: auth }, async (_request, reply) => {
     const users = await listUsers.execute();
     return reply.send(
       users.map((u) => ({
@@ -50,7 +57,7 @@ export async function usersRoutes(app: FastifyInstance) {
     );
   });
 
-  app.get("/users/:id", async (request, reply) => {
+  app.get("/users/:id", { onRequest: auth }, async (request, reply) => {
     const paramsSchema = z.object({ id: z.string().uuid() });
     const { id } = paramsSchema.parse(request.params);
     const user = await getUser.execute({ id });
@@ -64,7 +71,7 @@ export async function usersRoutes(app: FastifyInstance) {
     });
   });
 
-  app.put("/users/:id", async (request, reply) => {
+  app.put("/users/:id", { onRequest: auth }, async (request, reply) => {
     const paramsSchema = z.object({ id: z.string().uuid() });
     const bodySchema = z.object({
       email: z.string().email().optional(),
@@ -87,7 +94,7 @@ export async function usersRoutes(app: FastifyInstance) {
     });
   });
 
-  app.delete("/users/:id", async (request, reply) => {
+  app.delete("/users/:id", { onRequest: auth }, async (request, reply) => {
     const paramsSchema = z.object({ id: z.string().uuid() });
     const { id } = paramsSchema.parse(request.params);
     await deleteUser.execute({ id });
